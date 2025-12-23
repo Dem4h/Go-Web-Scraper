@@ -84,6 +84,9 @@ func Scrape(dom, l string, v *map[string]bool) {
 func main() {
 	arg := os.Args[1]
 	v := make(map[string]bool)
+	if arg[len(arg)-1] == "/"[0] {
+		arg = arg[:len(arg)-1]
+	}
 	Scrape(arg, arg, &v)
 	fmt.Println("\nDead link:")
 	for k := range v {
