@@ -7,4 +7,4 @@ Only work with non javascript Web pages!
 
 ### Use
 
-run the `main` executable followed by the web page you want to scrap **without any trailing \**
+run the `main` executable followed by the web page you want to scrap **without any trailing "/"**
