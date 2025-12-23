@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,6 +11,32 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
+func ParsePage(dom, l string) (*http.Response, error) {
+
+	client := &http.Client{}
+	u, err := url.Parse(l)
+	if err != nil {
+		panic(err)
+	}
+	udom, err := url.Parse(dom)
+	if err != nil {
+		panic(err)
+	}
+	if udom.Hostname() != u.Hostname() {
+		errorDomain := errors.New("Be careful! not same domain: %s " + u.Hostname())
+		return nil, errorDomain
+	}
+	res, err := client.Get(l)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered in f", r)
+		}
+	}()
+	return res, nil
+}
 func formatURL(dom, l string) string {
 	if l[0] == "/"[0] {
 		return dom + l
@@ -40,28 +67,11 @@ func checkAtrr(dom, l string, doc *html.Node, links *[]string, v *map[string]boo
 	}
 }
 func Scrape(dom, l string, v *map[string]bool) {
-	client := &http.Client{}
-	u, err := url.Parse(l)
+	res, err := ParsePage(dom, l)
 	if err != nil {
-		panic(err)
-	}
-	udom, err := url.Parse(dom)
-	if err != nil {
-		panic(err)
-	}
-	if udom.Hostname() != u.Hostname() {
-		fmt.Printf("Be careful! not same domain: %s ", u.Hostname())
+		fmt.Println(err)
 		return
 	}
-	res, err := client.Get(l)
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("Recovered in f", r)
-		}
-	}()
 	doc, err := html.Parse(res.Body)
 
 	if err != nil {
