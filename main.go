@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -11,9 +10,18 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
-func ParsePage(dom, l string) (*http.Response, error) {
+var Reset = "\033[0m"
+var Red = "\033[31m"
+var Green = "\033[32m"
+var Yellow = "\033[33m"
+var Blue = "\033[34m"
+var Magenta = "\033[35m"
+var Cyan = "\033[36m"
+var Gray = "\033[37m"
+var White = "\033[97m"
 
-	client := &http.Client{}
+func isSameDom(dom, l string) bool {
+
 	u, err := url.Parse(l)
 	if err != nil {
 		panic(err)
@@ -23,9 +31,14 @@ func ParsePage(dom, l string) (*http.Response, error) {
 		panic(err)
 	}
 	if udom.Hostname() != u.Hostname() {
-		errorDomain := errors.New("Be careful! not same domain: %s " + u.Hostname())
-		return nil, errorDomain
+		fmt.Println(Red + "link found with different domain: " + u.Hostname())
+		return false
 	}
+	return true
+}
+func ParsePage(dom, l string) (*http.Response, error) {
+
+	client := &http.Client{}
 	res, err := client.Get(l)
 	if err != nil {
 		panic(err)
@@ -50,12 +63,14 @@ func checkAtrr(dom, l string, doc *html.Node, links *[]string, v *map[string]boo
 		if n.Type == html.ElementNode && n.DataAtom == atom.A {
 			for _, a := range n.Attr {
 				if _, prs := (*v)[a.Val]; !prs && a.Key == "href" && a.Val != "#" {
-					*ls = append(*ls, a.Val)
 					(*v)[a.Val] = true
 					nUrl := formatURL(dom, a.Val)
-					fmt.Println(nUrl)
+					fmt.Println(White + nUrl)
 					*ls = append(*ls, nUrl)
-					Scrape(dom, nUrl, v)
+					if isSameDom(dom, nUrl) {
+
+						Scrape(dom, nUrl, v)
+					}
 				}
 
 			}
@@ -63,6 +78,7 @@ func checkAtrr(dom, l string, doc *html.Node, links *[]string, v *map[string]boo
 		}
 	}
 	if len(*ls) == 0 {
+		fmt.Println(Cyan + "Deadlink found : " + l)
 		(*v)[l] = false
 	}
 }
@@ -88,7 +104,7 @@ func main() {
 		arg = arg[:len(arg)-1]
 	}
 	Scrape(arg, arg, &v)
-	fmt.Println("\nDead link:")
+	fmt.Println(Cyan + "\nDead link:")
 	for k := range v {
 		if v[k] == false {
 			fmt.Println(k)
