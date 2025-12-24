@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
@@ -12,12 +13,8 @@ import (
 
 var Reset = "\033[0m"
 var Red = "\033[31m"
-var Green = "\033[32m"
 var Yellow = "\033[33m"
-var Blue = "\033[34m"
-var Magenta = "\033[35m"
 var Cyan = "\033[36m"
-var Gray = "\033[37m"
 var White = "\033[97m"
 
 func isSameDom(dom, l string) bool {
@@ -57,7 +54,8 @@ func formatURL(dom, l string) string {
 	return l
 }
 
-func checkAtrr(dom, l string, doc *html.Node, links *[]string, v *map[string]bool) {
+func checkAtrr(dom, l string, doc *html.Node, links *[]string, v *map[string]bool, wg *sync.WaitGroup) {
+	defer wg.Done()
 	ls := links
 	for n := range doc.Descendants() {
 		if n.Type == html.ElementNode && n.DataAtom == atom.A {
@@ -68,8 +66,8 @@ func checkAtrr(dom, l string, doc *html.Node, links *[]string, v *map[string]boo
 					fmt.Println(White + nUrl)
 					*ls = append(*ls, nUrl)
 					if isSameDom(dom, nUrl) {
-
-						Scrape(dom, nUrl, v)
+						wg.Add(1)
+						go Scrape(dom, nUrl, v, wg)
 					}
 				}
 
@@ -82,19 +80,21 @@ func checkAtrr(dom, l string, doc *html.Node, links *[]string, v *map[string]boo
 		(*v)[l] = false
 	}
 }
-func Scrape(dom, l string, v *map[string]bool) {
+func Scrape(dom, l string, v *map[string]bool, wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
 	res, err := ParsePage(dom, l)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	doc, err := html.Parse(res.Body)
-
+	defer res.Body.Close()
 	if err != nil {
 		panic(err)
 	}
 	links := make([]string, 0)
-	checkAtrr(dom, l, doc, &links, v)
+	checkAtrr(dom, l, doc, &links, v, wg)
 }
 
 func main() {
@@ -103,7 +103,10 @@ func main() {
 	if arg[len(arg)-1] == "/"[0] {
 		arg = arg[:len(arg)-1]
 	}
-	Scrape(arg, arg, &v)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go Scrape(arg, arg, &v, &wg)
+	wg.Wait()
 	fmt.Println(Cyan + "\nDead link:")
 	for k := range v {
 		if v[k] == false {
